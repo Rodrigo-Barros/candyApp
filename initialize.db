@@ -1,0 +1,48 @@
+-- Inicializar o banco de dados
+CREATE TABLE IF NOT EXISTS usuarios(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT,
+  celular TEXT
+);
+
+CREATE TABLE IF NOT EXISTS produtos(
+  codigo_de_barras INTEGER PRIMARY KEY,
+  nome TEXT,
+  preco REAL,
+  quantidade INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS pedidos(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_usuario INTEGER,
+  data_pedido NUMERIC DEFAULT (date('now')),
+  status TEXT DEFAULT 'NAO PROCESSADO',
+  FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
+);
+
+CREATE TABLE IF NOT EXISTS pedido_itens(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_pedido INTEGER,
+  codigo_de_barras INTEGER,
+  quantidade INTEGER,
+  preco INTEGER,
+  FOREIGN KEY (codigo_de_barras) REFERENCES produtos(codigo_de_barras),
+  FOREIGN KEY (id_pedido) REFERENCES pedidos(id)
+);
+
+-- novo usuário
+INSERT INTO usuarios (nome,celular) VALUES('Rodrigo','11992798005');
+
+-- novo produto
+INSERT INTO produtos (nome,preco,quantidade,codigo_de_barras) VALUES('Neugebauer Amendoim',5.0,10,78900001923);
+
+-- novo pedido
+INSERT INTO pedidos (id_usuario) VALUES(1);
+INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES(1,78900001923,2,5);
+UPDATE produtos SET quantidade=quantidade-1 WHERE codigo_de_barras=78900001923;
+
+
+SELECT * FROM usuarios;
+SELECT * FROM produtos;
+SELECT * FROM pedidos;
+SELECT * FROM pedido_itens;

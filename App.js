@@ -18,6 +18,11 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import SQLite from 'react-native-sqlite-storage';
+import RadioForm, {
+  RadioButton,
+  RadioButtonInput,
+  RadioButtonLabel,
+} from 'react-native-simple-radio-button';
 
 const Products = (props) => {
   const styles = {
@@ -428,8 +433,7 @@ const ProductSell = ({navigation}) => {
     btnFinish: {
       backgroundColor: 'blue',
       padding: 5,
-      width: '90%',
-      marginLeft: '5%',
+      width: '48%',
     },
     btnFinishText: {
       color: '#fff',
@@ -437,17 +441,27 @@ const ProductSell = ({navigation}) => {
       fontWeight: 'bold',
       textAlign: 'center',
     },
+    radioForm: {
+      marginTop: 5,
+      marginLeft: '5%',
+    },
+    wrapperRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginLeft: '5%',
+      marginRight: '5%',
+    },
   };
 
-  const clients = [{name: 'Ceará'}, {name: 'Bolivia'}, {name: 'Silvia Design'}];
   const [clientRows, setClientsRows] = useState([]);
   const [productRows, setProductRows] = useState([]);
-  const [value, setValue] = useState(1);
   const [orderItems, setOrderItems] = useState([]);
+  const [paymentType, setPaymentType] = useState('fiado');
+  const [disableAddButton, setDisableAddButton] = useState(false);
 
   const [orderInfo, setOrderInfo] = useState({});
 
-  const selectClientsList = () => {
+  const selectClientsList = async () => {
     return new Promise((resolve, reject) => {
       const db = DB.db;
       db.transaction((tx) => {
@@ -470,7 +484,7 @@ const ProductSell = ({navigation}) => {
     });
   };
 
-  const selectProductsList = () => {
+  const selectProductsList = async () => {
     return new Promise((resolve, reject) => {
       const db = DB.db;
       db.transaction((tx) => {
@@ -494,11 +508,11 @@ const ProductSell = ({navigation}) => {
   };
 
   useEffect(() => {
-    let isMounted = true;
+    let isMounted = false;
     selectProductsList();
     selectClientsList();
     return () => {
-      isMounted = false;
+      isMounted = true;
     };
   }, [clientRows, productRows]);
   //console.log('pr', productRows);
@@ -574,15 +588,37 @@ const ProductSell = ({navigation}) => {
           let amount = value;
           let product = orderInfo.produto;
           orderInfo.produto.quantidade = amount;
-          if (amount > product.estoque)
+          if (amount > product.estoque) {
             console.log(
               'você possui apenas ' +
                 product.estoque +
                 ' produtos em seu estoque',
             );
+
+            ToastAndroid.show(
+              'Você possui apenas ' + product.estoque + ' em seu estoque',
+              ToastAndroid.LONG,
+            );
+
+            setDisableAddButton(true);
+          } else {
+            setDisableAddButton(false);
+          }
         }}>
         {productAmount}
       </Picker>
+      <Text style={styles.inputLabel}>Tipo de pagamento:</Text>
+      <RadioForm
+        style={styles.radioForm}
+        radio_props={[
+          {label: 'á receber  ', value: 'fiado'},
+          {label: 'recebido', value: 'dinheiro'},
+        ]}
+        formHorizontal={true}
+        onPress={(value) => {
+          setPaymentType(value);
+        }}
+      />
       <TouchableOpacity
         style={styles.btnScan}
         onPress={() => {
@@ -590,25 +626,33 @@ const ProductSell = ({navigation}) => {
         }}>
         <Text style={styles.btnScanText}>Ler Códigos de Barras</Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.btnFinish}
-        onPress={() => {
-          let subtotal = orderInfo.produto.quantidade * orderInfo.produto.preco;
-          orderInfo.subtotal = subtotal;
-          orderItems.push({
-            nome: orderInfo.produto.nome,
-            quantidade: orderInfo.produto.quantidade,
-            subtotal,
-          });
-          console.log('orderInfo', orderInfo);
-          console.log('orderItems', orderItems);
-          setOrderItems(orderItems);
-        }}>
-        <Text style={styles.btnFinishText}>Adicionar</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.btnFinish}>
-        <Text style={styles.btnFinishText}>Vender</Text>
-      </TouchableOpacity>
+
+      {/*Adicionar*/}
+      <View style={styles.wrapperRow}>
+        <TouchableOpacity
+          style={styles.btnFinish}
+          disabled={disableAddButton}
+          onPress={() => {
+            let subtotal =
+              orderInfo.produto.quantidade * orderInfo.produto.preco;
+            orderInfo.subtotal = subtotal;
+            orderItems.push({
+              nome: orderInfo.produto.nome,
+              quantidade: orderInfo.produto.quantidade,
+              subtotal,
+            });
+            console.log('orderInfo', orderInfo);
+            console.log('orderItems', orderItems);
+            setOrderItems(orderItems);
+          }}>
+          <Text style={styles.btnFinishText}>Adicionar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.btnFinish}>
+          <Text style={styles.btnFinishText}>Vender</Text>
+        </TouchableOpacity>
+      </View>
+      {/* Render cart items */}
       {orderItems.length > 0 ? (
         <View>
           <Text>Detalhes do pedido</Text>
@@ -795,6 +839,34 @@ const HomePage = ({navigation}) => {
       color: '#FFF',
     },
   };
+
+  const ss = {
+    container: {
+      flex: 1,
+    },
+    wrapper: {
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginLeft: '5%',
+      marginRight: '5%',
+    },
+    row: {
+      height: 10,
+      width: '20%',
+      backgroundColor: 'blue',
+    },
+  };
+
+  //return (
+  //  <View style={ss.container}>
+  //    <View style={ss.wrapper}>
+  //      <View style={ss.row} />
+  //      <View style={ss.row} />
+  //    </View>
+  //  </View>
+  //);
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.btn}>

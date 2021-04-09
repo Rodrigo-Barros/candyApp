@@ -18,11 +18,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import SQLite from 'react-native-sqlite-storage';
-import RadioForm, {
-  RadioButton,
-  RadioButtonInput,
-  RadioButtonLabel,
-} from 'react-native-simple-radio-button';
+import RadioForm from 'react-native-simple-radio-button';
 
 const Products = (props) => {
   const styles = {
@@ -409,13 +405,11 @@ const ProductSell = ({navigation}) => {
     inputLabel: {
       fontSize: 20,
       fontWeight: 'bold',
-      width: '90%',
       marginLeft: '5%',
     },
     picker: {
-      width: '90%',
-      marginLeft: '5%',
-      height: 40,
+      width: '65%',
+      marginTop: -10,
     },
     btnScan: {
       width: '90%',
@@ -445,11 +439,30 @@ const ProductSell = ({navigation}) => {
       marginTop: 5,
       marginLeft: '5%',
     },
+    wrapperInput: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
     wrapperRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginLeft: '5%',
       marginRight: '5%',
+    },
+    orderDetails: {
+      title: {
+        fontSize: 14,
+        marginLeft: '5%',
+      },
+      head: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginLeft: '5%',
+      },
+      body: {
+        fontSize: 14,
+        marginLeft: '5%',
+      },
     },
   };
 
@@ -458,6 +471,8 @@ const ProductSell = ({navigation}) => {
   const [orderItems, setOrderItems] = useState([]);
   const [paymentType, setPaymentType] = useState('fiado');
   const [disableAddButton, setDisableAddButton] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [selectedProduct, setSelectedProduct] = useState(0);
 
   const [orderInfo, setOrderInfo] = useState({});
 
@@ -538,81 +553,93 @@ const ProductSell = ({navigation}) => {
   return (
     <View style={styles.container}>
       {/* Clients*/}
-      <Text style={styles.inputLabel}>Cliente:</Text>
-      <Picker
-        style={styles.picker}
-        onValueChange={(value) => {
-          let clientName = clientRows[value].nome;
-          orderInfo.client = clientName;
-          setOrderInfo(orderInfo);
-        }}
-        selectedValue="Selecione">
-        {clientRows.map((client, index) => (
-          <Picker.Item label={client.nome} value={client.id} key={client.id} />
-        ))}
-      </Picker>
-
+      <View style={styles.wrapperInput}>
+        <Text style={styles.inputLabel}>Cliente:</Text>
+        <Picker
+          style={styles.picker}
+          onValueChange={(value) => {
+            let client = clientRows[value];
+            orderInfo.cliente = {
+              nome: client.nome,
+              id: client.id,
+            };
+            setOrderInfo(orderInfo);
+          }}
+          selectedValue={0}>
+          {clientRows.map((client, index) => (
+            <Picker.Item
+              label={client.nome}
+              value={client.id}
+              key={client.id}
+            />
+          ))}
+        </Picker>
+      </View>
       {/*Products*/}
-      <Text style={styles.inputLabel}>Produto:</Text>
-      <Picker
-        style={styles.picker}
-        selectedValue="Selecione"
-        onValueChange={(value, index) => {
-          let product = productRows[index];
-          let amount = orderInfo.hasOwnProperty('produto')
-            ? orderInfo.produto.quantidade
-            : 0;
-          orderInfo.produto = {
-            nome: product.nome,
-            codigo_de_barras: value,
-            preco: product.preco,
-            estoque: product.quantidade,
-            quantidade: amount,
-          };
-          setOrderInfo(orderInfo);
-        }}>
-        {productRows.map((product) => (
-          <Picker.Item
-            value={product.codigo_de_barras}
-            label={product.nome}
-            key={product.id}
-          />
-        ))}
-      </Picker>
-
+      <View style={styles.wrapperInput}>
+        <Text style={styles.inputLabel}>Produto:</Text>
+        <Picker
+          style={styles.picker}
+          selectedValue={selectedProduct}
+          onValueChange={(value, index) => {
+            let product = productRows[index];
+            let amount = orderInfo.hasOwnProperty('produto')
+              ? orderInfo.produto.quantidade
+              : 0;
+            orderInfo.produto = {
+              nome: product.nome,
+              codigo_de_barras: value,
+              preco: product.preco,
+              estoque: product.quantidade,
+              quantidade: amount,
+            };
+            setOrderInfo(orderInfo);
+          }}>
+          {productRows.map((product) => (
+            <Picker.Item
+              value={product.codigo_de_barras}
+              label={product.nome}
+              key={product.id}
+            />
+          ))}
+        </Picker>
+      </View>
       {/* Quantidade */}
-      <Text style={styles.inputLabel}>Quantidade:</Text>
-      <Picker
-        style={styles.picker}
-        onValueChange={(value) => {
-          let amount = value;
-          let product = orderInfo.produto;
-          orderInfo.produto.quantidade = amount;
-          if (amount > product.estoque) {
-            console.log(
-              'você possui apenas ' +
-                product.estoque +
-                ' produtos em seu estoque',
-            );
+      <View style={styles.wrapperInput}>
+        <Text style={styles.inputLabel}>Quantidade:</Text>
+        <Picker
+          style={styles.picker}
+          onValueChange={(value) => {
+            let amount = value;
+            let product = orderInfo.produto;
+            orderInfo.produto.quantidade = amount;
+            if (amount > product.estoque) {
+              console.log(
+                'você possui apenas ' +
+                  product.estoque +
+                  ' produtos em seu estoque',
+              );
 
-            ToastAndroid.show(
-              'Você possui apenas ' + product.estoque + ' em seu estoque',
-              ToastAndroid.LONG,
-            );
+              ToastAndroid.show(
+                'Você possui apenas ' + product.estoque + ' em seu estoque',
+                ToastAndroid.LONG,
+              );
 
-            setDisableAddButton(true);
-          } else {
-            setDisableAddButton(false);
-          }
-        }}>
-        {productAmount}
-      </Picker>
+              setDisableAddButton(true);
+            } else {
+              setDisableAddButton(false);
+            }
+          }}>
+          {productAmount}
+        </Picker>
+      </View>
+      {/*Payment Type*/}
       <Text style={styles.inputLabel}>Tipo de pagamento:</Text>
       <RadioForm
         style={styles.radioForm}
         radio_props={[
-          {label: 'á receber  ', value: 'fiado'},
-          {label: 'recebido', value: 'dinheiro'},
+          {label: 'á receber  ', value: 'NAO PROCESSADO'},
+          {label: 'recebido', value: 'PROCESSADO'},
         ]}
         formHorizontal={true}
         onPress={(value) => {
@@ -639,8 +666,17 @@ const ProductSell = ({navigation}) => {
             orderItems.push({
               nome: orderInfo.produto.nome,
               quantidade: orderInfo.produto.quantidade,
+              codigo_de_barras: orderInfo.produto.codigo_de_barras,
+              preco: orderInfo.produto.preco,
               subtotal,
             });
+            setTotal(0);
+            let local_total = 0;
+            orderItems.map((item) => {
+              local_total = local_total + item.subtotal;
+            });
+            setTotal(local_total);
+            console.log('total', total);
             console.log('orderInfo', orderInfo);
             console.log('orderItems', orderItems);
             setOrderItems(orderItems);
@@ -648,24 +684,30 @@ const ProductSell = ({navigation}) => {
           <Text style={styles.btnFinishText}>Adicionar</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.btnFinish}>
+        <TouchableOpacity style={styles.btnFinish} onPress={newSell}>
           <Text style={styles.btnFinishText}>Vender</Text>
         </TouchableOpacity>
       </View>
       {/* Render cart items */}
       {orderItems.length > 0 ? (
         <View>
-          <Text>Detalhes do pedido</Text>
-          <Text># Produto preço</Text>
+          <Text style={styles.orderDetails.title}>Detalhes do pedido:</Text>
+          <Text style={styles.orderDetails.head}>Qnt Produto Un Subtotal</Text>
         </View>
       ) : (
         <Text></Text>
       )}
       {orderItems.map((item) => (
-        <Text>
-          {item.quantidade} {item.nome} {item.subtotal}
+        <Text style={styles.orderDetails.body}>
+          {item.quantidade} {item.nome} {item.subtotal / item.quantidade}{' '}
+          {item.subtotal}
         </Text>
       ))}
+      {orderItems.length > 0 ? (
+        <Text style={styles.orderDetails.head}>Total: R$ {total}</Text>
+      ) : (
+        <Text></Text>
+      )}
     </View>
   );
 };

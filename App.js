@@ -73,6 +73,24 @@ const Products = (props) => {
   };
 
   const {products, setProducts, navigation} = props;
+  const deleteProduct = (id) => {
+    DB.db.transaction((tx) => {
+      tx.executeSql(
+        'DELETE FROM produtos WHERE codigo_de_barras=?',
+        [id],
+        (_, result) => {
+          let rows = result.rows.raw();
+          console.log(result);
+          rows.map((row) => {
+            console.log(row);
+          });
+        },
+        (error) => {
+          console.log(error);
+        },
+      );
+    });
+  };
 
   // load products only one time
   useEffect(() => {
@@ -104,7 +122,11 @@ const Products = (props) => {
               <TouchableOpacity style={styles.btnEdit}>
                 <Text style={styles.textWhite}>Editar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btnRemove}>
+              <TouchableOpacity
+                style={styles.btnRemove}
+                onPress={() => {
+                  deleteProduct(item.codigo_de_barras);
+                }}>
                 <Text style={styles.textWhite}>Excluir</Text>
               </TouchableOpacity>
             </View>
@@ -219,8 +241,13 @@ const NewProduct = (props) => {
         keyboardType="numeric"
       />
 
-      <TouchableOpacity style={{backgroundColor: 'red'}}>
-        <Text style={styles.btnAddNewProductText}>
+      <TouchableOpacity
+        style={{backgroundColor: 'green', paddingTop: 5, paddingBottom: 5}}>
+        <Text
+          style={styles.btnAddNewProductText}
+          onPress={() => {
+            navigation.navigate('Escanear');
+          }}>
           Escanear Código de barras
         </Text>
       </TouchableOpacity>
@@ -469,14 +496,14 @@ const ProductSell = ({navigation}) => {
   const [clientRows, setClientsRows] = useState([]);
   const [productRows, setProductRows] = useState([]);
   const [orderItems, setOrderItems] = useState([]);
-  const [paymentType, setPaymentType] = useState('fiado');
+  const [paymentType, setPaymentType] = useState('NAO PROCESSADO');
   const [disableAddButton, setDisableAddButton] = useState(false);
   const [total, setTotal] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(0);
 
   const [orderInfo, setOrderInfo] = useState({});
 
-  const selectClientsList = async () => {
+  const selectClientsList = async (isMounted) => {
     return new Promise((resolve, reject) => {
       const db = DB.db;
       db.transaction((tx) => {
@@ -495,11 +522,11 @@ const ProductSell = ({navigation}) => {
       });
     }).then((rows) => {
       //console.log(rows);
-      setClientsRows(rows);
+      if (isMounted) setClientsRows(rows);
     });
   };
 
-  const selectProductsList = async () => {
+  const selectProductsList = async (isMounted) => {
     return new Promise((resolve, reject) => {
       const db = DB.db;
       db.transaction((tx) => {
@@ -518,18 +545,46 @@ const ProductSell = ({navigation}) => {
       });
     }).then((rows) => {
       //console.log(rows);
-      setProductRows(rows);
+      if (isMounted) setProductRows(rows);
+    });
+  };
+
+  const newSell = () => {
+    console.log('iniciando a consulta...');
+
+    DB.db.transaction((tx) => {
+      tx.executeSql(
+        'INSERT INTO pedidos (id_usuario,status) VALUES (?,?) ',
+        [orderInfo.cliente.id, paymentType],
+        () => console.log('ok'),
+        (error) => console.log(error),
+      );
+      orderItems.map((produto) => {
+        tx.executeSql(
+          'INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES (last_insert_rowid(),?,?,?)',
+          [produto.codigo_de_barras, produto.quantidade, produto.preco],
+          () => console.log('Itens inseridos com sucesso'),
+          (error) => console.log('Erro ao inserir os itens do pedido ', error),
+        );
+        tx.executeSql(
+          'UPDATE produtos SET quantidade=quantidade-? WHERE codigo_de_barras=?',
+          [produto.quantidade, produto.codigo_de_barras],
+          () => console.log('Itens inseridos com sucesso'),
+          (error) => console.log('Erro ao inserir os itens do pedido ', error),
+        );
+        console.log('transação finalizada');
+      });
     });
   };
 
   useEffect(() => {
-    let isMounted = false;
-    selectProductsList();
-    selectClientsList();
+    let isMounted = true;
+    selectProductsList(isMounted);
+    selectClientsList(isMounted);
     return () => {
-      isMounted = true;
+      isMounted = false;
     };
-  }, [clientRows, productRows]);
+  });
   //console.log('pr', productRows);
 
   // const products = [
@@ -547,7 +602,9 @@ const ProductSell = ({navigation}) => {
 
   let productAmount = [<Picker.Item value="selecione" label="Selecione" />];
   for (let i = 1; i < 11; i++) {
-    productAmount.push(<Picker.Item value={i} label={i.toString()} />);
+    productAmount.push(
+      <Picker.Item value={i} label={i.toString()} key={i.toString()} />,
+    );
   }
 
   return (
@@ -714,7 +771,7 @@ const ProductSell = ({navigation}) => {
 
 const NewScan = () => {
   // const [count, setCount] = useState(0);
-  const [barcode, setBarcode] = useState('Escaneie um produto');
+  const [barcode, setBarcode] = useState('Escaneie um produto:');
   return (
     <QRCodeScanner
       onRead={(e) => {
@@ -736,7 +793,7 @@ const NewScan = () => {
       flashMode={RNCamera.Constants.FlashMode.auto}
       topContent={
         <TouchableOpacity>
-          <Text style={{marginBottom: 30}}>{barcode}</Text>
+          <Text style={{marginBottom: 60, fontWeight: 'bold'}}>{barcode}</Text>
         </TouchableOpacity>
       }
     />
@@ -814,26 +871,6 @@ class DB {
     );
   }
 
-  // initializeDB
-  static populateDB() {
-    this.db.executeSql(
-      `
-    -- INSERT INTO usuarios (nome,celular) VALUES('Rodrigo','11992798005');
-
-    -- INSERT INTO produtos (nome,preco,quantidade,codigo_de_barras) VALUES('Neugebauer Amendoim',5.0,10,78900001923);
-    INSERT INTO produtos (nome,preco,quantidade,codigo_de_barras) VALUES('Neugebauer Cookies',5.0,10,78900001924);
-  
-
-    -- INSERT INTO pedidos (id_usuario) VALUES(1);
-    -- INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES(1,78900001923,2,5);
-    -- UPDATE produtos SET quantidade=quantidade-1 WHERE codigo_de_barras=78900001923;
-    `,
-      [],
-      () => console.log('dados inseridos com sucesso no banco'),
-      (error) => console.log('Erro:', error),
-    );
-  }
-
   static getProducts(callback) {
     this.db.transaction((tx) => {
       tx.executeSql('SELECT * FROM produtos', [], (_, results) => {
@@ -845,10 +882,15 @@ class DB {
 
   static getClients(callback) {
     this.db.transaction((tx) => {
-      tx.executeSql('SELECT * FROM usuarios', [], (_, results) => {
-        let rows = results.rows.raw();
-        callback(rows);
-      });
+      tx.executeSql(
+        `SELECT * FROM usuarios`,
+        [],
+        (_, results) => {
+          let rows = results.rows.raw();
+          callback(rows);
+        },
+        (error) => console.log(error),
+      );
     });
   }
 
@@ -861,6 +903,8 @@ class DB {
     });
   }
 }
+
+DB.initializeDB();
 
 const HomePage = ({navigation}) => {
   const styles = {

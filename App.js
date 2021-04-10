@@ -92,6 +92,14 @@ const Products = (props) => {
     });
   };
 
+  const editProduct = (codigo_de_barras) => {
+    let product = {};
+    products.map((item) => {
+      if (item.codigo_de_barras == codigo_de_barras) product = item;
+      navigation.navigate('Novo Produto', {product});
+    });
+  };
+
   // load products only one time
   useEffect(() => {
     DB.getProducts((rows) => {
@@ -119,7 +127,11 @@ const Products = (props) => {
             <Text>Preço: {item.price}</Text>
             <Text>Quantidade: {item.quantity}</Text>
             <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.btnEdit}>
+              <TouchableOpacity
+                style={styles.btnEdit}
+                onPress={() => {
+                  editProduct(item.codigo_de_barras);
+                }}>
                 <Text style={styles.textWhite}>Editar</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -180,21 +192,33 @@ const NewProduct = (props) => {
     },
   };
 
-  const [name, setName] = useState('');
-  const [barcode, setBarcode] = useState('');
-  const [amount, setAmount] = useState(0);
-  const [price, setPrice] = useState(0);
-  const {products, setProducts, navigation} = props;
+  const {products, setProducts, navigation, route} = props;
+  const product =
+    typeof route.params == 'undefined' ? {} : route.params.product;
+  const mode = typeof route.params == 'undefined' ? 'create' : 'update';
 
-  const insertNewProduct = (name, barcode, amount, price) => {
+  const [name, setName] = useState(
+    product.hasOwnProperty('name') ? product.name : '',
+  );
+  const [barcode, setBarcode] = useState(
+    product.hasOwnProperty('codigo_de_barras') ? product.codigo_de_barras : '',
+  );
+  const [amount, setAmount] = useState(
+    product.hasOwnProperty('quantity') ? product.quantity : 0,
+  );
+  const [price, setPrice] = useState(
+    product.hasOwnProperty('price') ? product.price : 0,
+  );
+
+  const insertNewProduct = () => {
     const db = DB.db;
 
     db.transaction((tx) => {
       tx.executeSql(
-        `-- DELETE FROM produtos;
+        `
         INSERT INTO produtos (nome,preco,codigo_de_barras,quantidade) 
-        VALUES("${name}",${price},${barcode},${amount})`,
-        [],
+        VALUES(?,?,?,?)`,
+        [name, price, barcode, amount],
         (tx, results) => {
           products.push({
             name,
@@ -208,6 +232,48 @@ const NewProduct = (props) => {
     });
   };
 
+  const updateProduct = () => {
+    const db = DB.db;
+
+    db.transaction((tx) => {
+      tx.executeSql(
+        `
+        UPDATE produtos 
+          SET nome=?,preco=?,quantidade=?
+        WHERE codigo_de_barras=?
+        `,
+        [name, price, amount, barcode],
+        (tx, results) => {
+          products.push({
+            name,
+            price,
+            quantity: amount,
+          });
+          navigation.navigate('Produtos');
+        },
+        (error) => console.log('Error: ', error),
+      );
+    });
+  };
+
+  const chooseMode = () => {
+    switch (mode) {
+      case 'create':
+        insertNewProduct();
+        break;
+      case 'update':
+        updateProduct();
+        break;
+      default:
+        throw new Error(
+          'Expected values to function ',
+          this.name,
+          "do not match valid values 'create' or update 'value' received: ",
+          mode,
+        );
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Novo Produto:</Text>
@@ -215,6 +281,7 @@ const NewProduct = (props) => {
         style={styles.input}
         onChangeText={(value) => setName(value)}
         placeholder="Digite o nome do produto"
+        defaultValue={typeof product.name == 'undefined' ? '' : product.name}
       />
 
       <Text style={styles.label}>Código de barras:</Text>
@@ -223,6 +290,11 @@ const NewProduct = (props) => {
         onChangeText={(value) => setBarcode(parseInt(value))}
         placeholder="Digite o Código de Barras"
         keyboardType="numeric"
+        defaultValue={
+          typeof product.codigo_de_barras == 'undefined'
+            ? ''
+            : product.codigo_de_barras.toString()
+        }
       />
 
       <Text style={styles.label}>Preço:</Text>
@@ -231,6 +303,9 @@ const NewProduct = (props) => {
         onChangeText={(value) => setPrice(parseFloat(value))}
         placeholder="Digite o preço do produto"
         keyboardType="numeric"
+        defaultValue={
+          typeof product.price == 'undefined' ? '' : product.price.toString()
+        }
       />
 
       <Text style={styles.label}>Quantidade:</Text>
@@ -239,6 +314,11 @@ const NewProduct = (props) => {
         onChangeText={(value) => setAmount(parseInt(value))}
         placeholder="Digite a quantidade de produtos"
         keyboardType="numeric"
+        defaultValue={
+          typeof product.quantity == 'undefined'
+            ? ''
+            : product.quantity.toString()
+        }
       />
 
       <TouchableOpacity
@@ -252,9 +332,7 @@ const NewProduct = (props) => {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.btnAddNewProduct}
-        onPress={() => insertNewProduct(name, barcode, amount, price)}>
+      <TouchableOpacity style={styles.btnAddNewProduct} onPress={chooseMode}>
         <Text style={styles.btnAddNewProductText}>Cadastrar</Text>
       </TouchableOpacity>
     </View>
@@ -883,7 +961,7 @@ class DB {
   static getClients(callback) {
     this.db.transaction((tx) => {
       tx.executeSql(
-        `SELECT * FROM usuarios`,
+        'SELECT * FROM usuarios',
         [],
         (_, results) => {
           let rows = results.rows.raw();
@@ -904,7 +982,7 @@ class DB {
   }
 }
 
-DB.initializeDB();
+//DB.initializeDB();
 
 const HomePage = ({navigation}) => {
   const styles = {

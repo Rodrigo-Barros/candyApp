@@ -1033,7 +1033,9 @@ const HomePage = ({navigation}) => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.btn}>
+      <TouchableOpacity
+        style={styles.btn}
+        onPress={() => navigation.navigate('Filtros')}>
         <Text style={styles.btnText}>Filtrar</Text>
       </TouchableOpacity>
 
@@ -1042,6 +1044,236 @@ const HomePage = ({navigation}) => {
         onPress={() => navigation.navigate('Nova Venda')}>
         <Text style={styles.btnText}>Nova Venda</Text>
       </TouchableOpacity>
+    </View>
+  );
+};
+
+const Filters = () => {
+  const styles = {
+    root: {
+      backgroundColor: '#eae9ef',
+      flex: 1,
+    },
+    flexRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+    },
+    item: {
+      marginLeft: '5%',
+      marginRight: '5%',
+      backgroundColor: '#fff',
+      marginBottom: 5,
+      date: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        textAlign: 'center',
+      },
+      text: {
+        marginLeft: 10,
+        fontSize: 15,
+      },
+      details: {
+        marginTop: 5,
+        marginBottom: 5,
+        marginRight: 10,
+        backgroundColor: 'blue',
+        width: 'auto',
+        padding: 5,
+        btnDetails: {
+          color: '#fff',
+          textAlign: 'center',
+          fontSize: 15,
+          fontWeight: 'bold',
+        },
+      },
+      pay: {
+        marginTop: 5,
+        marginBottom: 5,
+        marginLeft: 10,
+        backgroundColor: 'green',
+        width: 'auto',
+        padding: 5,
+        btnPay: {
+          color: '#fff',
+          textAlign: 'center',
+          fontSize: 15,
+          fontWeight: 'bold',
+        },
+      },
+    },
+  };
+
+  // 1 = Data, 2=Pedidos em aberto, 3=Pedidos finalizados
+  const [filterOptionValue, setFilterOption] = useState('Selecione');
+  const [filterItems, setFilterItems] = useState([]);
+
+  const filterOptionList = ['Data', 'Pedidos em aberto', 'Pedidos finalizados'];
+
+  const selectPaymentNotFinished = () => {
+    DB.db.transaction((tx) => {
+      tx.executeSql(
+        `
+        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,pedido_itens.preco as total_pedido FROM usuarios
+        INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
+        INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
+        WHERE pedidos.status="NAO PROCESSADO" ORDER BY pedidos.data_pedido`,
+        [],
+        (_, results) => {
+          let rows = results.rows.raw();
+          let orderItems = [];
+          rows.map((row) => {
+            orderItems.push(row);
+          });
+          setFilterItems(orderItems);
+        },
+      );
+    });
+  };
+
+  const selectByData = () => {
+    DB.db.transaction((tx) => {
+      tx.executeSql(
+        `
+        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,pedido_itens.preco as total_pedido FROM usuarios
+        INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
+        INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
+        ORDER BY pedidos.data_pedido DESC
+      `,
+        [],
+        (_, results) => {
+          console.log('finished');
+          console.log('results', results);
+          let rows = results.rows.raw();
+          let orderItems = [];
+          rows.map((row) => {
+            console.log(row);
+            orderItems.push(row);
+          });
+          setFilterItems(orderItems);
+        },
+      );
+    });
+  };
+
+  const markAsPayed = (pedido_id) => {
+    DB.db.transaction((tx) => {
+      tx.executeSql(
+        'UPDATE pedidos SET status=? WHERE id=?',
+        ['PROCESSADO', pedido_id],
+        () => console.log('pedido marcado como pago', pedido_id),
+        (error) => console.log(error),
+      );
+    });
+  };
+
+  return (
+    <View style={styles.root}>
+      <Picker
+        selectedValue={filterOptionValue}
+        onValueChange={(value) => {
+          setFilterOption(value);
+
+          switch (value) {
+            case 'Selecione':
+              break;
+            case filterOptionList[0]:
+              selectByData();
+              break;
+            case filterOptionList[1]:
+              selectPaymentNotFinished();
+              break;
+            case filterOptionList[2]:
+              //selectByData();
+              break;
+            default:
+              throw new Error(
+                'Expected values:' + filterOptionList + ' got: ' + value,
+              );
+          }
+        }}>
+        <Picker.Item value={'Selecione'} label="Selecione" />
+        <Picker.Item value={filterOptionList[0]} label="Data" key={1} />
+        <Picker.Item
+          value={filterOptionList[1]}
+          label="Pedidos em aberto"
+          key={2}
+        />
+        <Picker.Item
+          value={filterOptionList[2]}
+          label="Pedidos finalizados"
+          key={3}
+        />
+      </Picker>
+
+      {/* selectPaymentNotFinished */}
+      {filterItems.map((filter) =>
+        filterOptionValue == filterOptionList[1] ? (
+          <View style={styles.item}>
+            <Text style={styles.item.date}>
+              {new Date(filter.data_pedido).getDate() +
+                '/' +
+                new Date(filter.data_pedido).getMonth() +
+                '/' +
+                new Date(filter.data_pedido).getFullYear()}
+            </Text>
+            <Text style={styles.item.text}>id pedido: {filter.pedido_id}</Text>
+            <Text style={styles.item.text}>nome: {filter.nome}</Text>
+            <Text style={styles.item.text}>
+              total: R${' '}
+              {parseFloat(filter.total_pedido).toFixed(2).replace('.', ',')}
+            </Text>
+            <View style={styles.flexRow}>
+              <TouchableOpacity
+                style={styles.item.details}
+                onPress={() => viewOrderItens(filter.pedido_id)}>
+                <Text style={styles.item.details.btnDetails}>Detalhes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.item.pay}
+                onPress={() => markAsPayed(filter.pedido_id)}>
+                <Text style={styles.item.pay.btnPay}>Marcar como Pago</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View></View>
+        ),
+      )}
+
+      {/* selectByData */}
+      {filterItems.map((filter) =>
+        filterOptionValue == filterOptionList[0] ? (
+          <View style={styles.item}>
+            <Text style={styles.item.date}>
+              {new Date(filter.data_pedido).getDate() +
+                '/' +
+                new Date(filter.data_pedido).getMonth() +
+                '/' +
+                new Date(filter.data_pedido).getFullYear()}
+            </Text>
+            <Text style={styles.item.text}>id pedido: {filter.pedido_id}</Text>
+            <Text style={styles.item.text}>nome: {filter.nome}</Text>
+            <Text style={styles.item.text}>
+              total: R${' '}
+              {parseFloat(filter.total_pedido).toFixed(2).replace('.', ',')}
+            </Text>
+            <View style={styles.flexRow}>
+              <TouchableOpacity
+                style={styles.item.details}
+                onPress={() => viewOrderItens(filter.pedido_id)}>
+                <Text style={styles.item.details.btnDetails}>Detalhes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.item.pay}
+                onPress={() => markAsPayed(filter.pedido_id)}>
+                <Text style={styles.item.pay.btnPay}>Marcar como Pago</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View></View>
+        ),
+      )}
     </View>
   );
 };
@@ -1085,6 +1317,7 @@ const App = () => {
         </Stack.Screen>
         <Stack.Screen name="Nova Venda" component={ProductSell} />
         <Stack.Screen name="Escanear" component={NewScan} />
+        <Stack.Screen name="Filtros" component={Filters} />
       </Stack.Navigator>
     </NavigationContainer>
   );

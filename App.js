@@ -628,26 +628,31 @@ const ProductSell = ({navigation}) => {
   };
 
   const newSell = () => {
-    console.log('iniciando a consulta...');
-
     DB.db.transaction((tx) => {
       tx.executeSql(
         'INSERT INTO pedidos (id_usuario,status) VALUES (?,?) ',
         [orderInfo.cliente.id, paymentType],
-        () => console.log('ok'),
+        () => console.log('pedido inserido na tabela'),
         (error) => console.log(error),
       );
       orderItems.map((produto) => {
+        console.log(produto);
         tx.executeSql(
           'INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES (last_insert_rowid(),?,?,?)',
           [produto.codigo_de_barras, produto.quantidade, produto.preco],
-          () => console.log('Itens inseridos com sucesso'),
+          () =>
+            console.log(
+              produto.nome,
+              produto.quantidade,
+              produto.preco,
+              'inserido na tabela pedido_itens',
+            ),
           (error) => console.log('Erro ao inserir os itens do pedido ', error),
         );
         tx.executeSql(
           'UPDATE produtos SET quantidade=quantidade-? WHERE codigo_de_barras=?',
           [produto.quantidade, produto.codigo_de_barras],
-          () => console.log('Itens inseridos com sucesso'),
+          () => console.log('Quantidade atualizada no banco de dados'),
           (error) => console.log('Erro ao inserir os itens do pedido ', error),
         );
         console.log('transação finalizada');
@@ -982,7 +987,7 @@ class DB {
   }
 }
 
-//DB.initializeDB();
+DB.initializeDB();
 
 const HomePage = ({navigation}) => {
   const styles = {
@@ -1048,7 +1053,7 @@ const HomePage = ({navigation}) => {
   );
 };
 
-const Filters = () => {
+const Filters = ({navigation}) => {
   const styles = {
     root: {
       backgroundColor: '#eae9ef',
@@ -1113,16 +1118,44 @@ const Filters = () => {
     DB.db.transaction((tx) => {
       tx.executeSql(
         `
-        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,pedido_itens.preco as total_pedido FROM usuarios
-        INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
-        INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
-        WHERE pedidos.status="NAO PROCESSADO" ORDER BY pedidos.data_pedido`,
+        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.preco * pedido_itens.quantidade) as total_pedido FROM usuarios
+          INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
+          INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
+        WHERE pedidos.status="NAO PROCESSADO"
+        GROUP BY pedido_itens.id_pedido
+        ORDER BY pedidos.data_pedido`,
+        [],
+        (_, results) => {
+          let rows = results.rows.raw();
+          let orderItems = [];
+          rows.map((row) => {
+            console.log(row);
+            orderItems.push(row);
+          });
+          setFilterItems(orderItems);
+        },
+        (error) => console.log(error),
+      );
+    });
+  };
+
+  const selectPaymentFinished = () => {
+    DB.db.transaction((tx) => {
+      tx.executeSql(
+        `
+        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.preco) as total_pedido FROM usuarios
+          INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
+          INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
+        WHERE pedidos.status="PROCESSADO"
+        GROUP BY pedido_itens.id_pedido
+        ORDER BY pedidos.data_pedido`,
         [],
         (_, results) => {
           let rows = results.rows.raw();
           let orderItems = [];
           rows.map((row) => {
             orderItems.push(row);
+            console.log(row);
           });
           setFilterItems(orderItems);
         },
@@ -1130,13 +1163,15 @@ const Filters = () => {
     });
   };
 
-  const selectByData = () => {
+  const selectByDate = () => {
     DB.db.transaction((tx) => {
       tx.executeSql(
         `
-        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,pedido_itens.preco as total_pedido FROM usuarios
+        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.quantidade * pedido_itens.preco) as total_pedido,
+        pedido_itens.codigo_de_barras, pedido_itens.quantidade FROM usuarios
         INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
         INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
+        GROUP BY pedido_itens.id_pedido
         ORDER BY pedidos.data_pedido DESC
       `,
         [],
@@ -1164,6 +1199,13 @@ const Filters = () => {
         (error) => console.log(error),
       );
     });
+    console.log(filterOptionValue, filterOptionList[1]);
+    // update when user mark order as finished
+    if (filterOptionValue == filterOptionList[1]) selectPaymentNotFinished();
+  };
+
+  const viewOrderItens = (pedido_id) => {
+    navigation.navigate('Detalhes do Pedido', {pedido_id});
   };
 
   return (
@@ -1177,13 +1219,13 @@ const Filters = () => {
             case 'Selecione':
               break;
             case filterOptionList[0]:
-              selectByData();
+              selectByDate();
               break;
             case filterOptionList[1]:
               selectPaymentNotFinished();
               break;
             case filterOptionList[2]:
-              //selectByData();
+              selectPaymentFinished();
               break;
             default:
               throw new Error(
@@ -1204,6 +1246,36 @@ const Filters = () => {
           key={3}
         />
       </Picker>
+
+      {/* selectByData */}
+      {filterItems.map((filter) =>
+        filterOptionValue == filterOptionList[0] ? (
+          <View style={styles.item}>
+            <Text style={styles.item.date}>
+              {new Date(filter.data_pedido).getDate() +
+                '/' +
+                new Date(filter.data_pedido).getMonth() +
+                '/' +
+                new Date(filter.data_pedido).getFullYear()}
+            </Text>
+            <Text style={styles.item.text}>id pedido: {filter.pedido_id}</Text>
+            <Text style={styles.item.text}>nome: {filter.nome}</Text>
+            <Text style={styles.item.text}>
+              total: R${' '}
+              {parseFloat(filter.total_pedido).toFixed(2).replace('.', ',')}
+            </Text>
+            <View style={styles.flexRow}>
+              <TouchableOpacity
+                style={styles.item.details}
+                onPress={() => viewOrderItens(filter.pedido_id)}>
+                <Text style={styles.item.details.btnDetails}>Detalhes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View></View>
+        ),
+      )}
 
       {/* selectPaymentNotFinished */}
       {filterItems.map((filter) =>
@@ -1240,9 +1312,9 @@ const Filters = () => {
         ),
       )}
 
-      {/* selectByData */}
+      {/* selectPaymentFinished */}
       {filterItems.map((filter) =>
-        filterOptionValue == filterOptionList[0] ? (
+        filterOptionValue == filterOptionList[2] ? (
           <View style={styles.item}>
             <Text style={styles.item.date}>
               {new Date(filter.data_pedido).getDate() +
@@ -1263,17 +1335,106 @@ const Filters = () => {
                 onPress={() => viewOrderItens(filter.pedido_id)}>
                 <Text style={styles.item.details.btnDetails}>Detalhes</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.item.pay}
-                onPress={() => markAsPayed(filter.pedido_id)}>
-                <Text style={styles.item.pay.btnPay}>Marcar como Pago</Text>
-              </TouchableOpacity>
             </View>
           </View>
         ) : (
           <View></View>
         ),
       )}
+    </View>
+  );
+};
+
+const orderDetails = ({route}) => {
+  const styles = {
+    container: {
+      flex: 1,
+      backgroundColor: '#eae9ef',
+      paddingTop: 10,
+    },
+    productDetails: {
+      padding: 10,
+      backgroundColor: '#fff',
+      marginLeft: '5%',
+      marginRight: '5%',
+    },
+    header: {
+      marginLeft: '5%',
+      marginRight: '5%',
+      backgroundColor: '#fff',
+      padding: 10,
+      fontSize: 15,
+      fontWeight: 'bold',
+    },
+    footer: {
+      marginLeft: '5%',
+      marginRight: '5%',
+      backgroundColor: '#fff',
+      padding: 10,
+      fontSize: 15,
+      fontWeight: 'bold',
+    },
+  };
+  const {pedido_id} = route.params;
+  const [orderItems, setOrderItems] = useState([]);
+  const [total, setTotal] = useState(0);
+
+  const getOrderItems = (orderId) => {
+    DB.db.transaction((tx) => {
+      tx.executeSql(
+        `SELECT pedido_itens.preco,pedido_itens.quantidade,produtos.nome FROM pedido_itens
+          INNER JOIN produtos ON produtos.codigo_de_barras=pedido_itens.codigo_de_barras
+        WHERE id_pedido=?`,
+        [orderId],
+        (_, results) => {
+          let items = results.rows.raw();
+          let pushItems = [];
+          let local_total = 0;
+          items.map((item) => {
+            local_total += item.quantidade * item.preco;
+            pushItems.push(item);
+          });
+          setOrderItems(pushItems);
+          setTotal(local_total);
+        },
+        (error) => console.log(error),
+      );
+    });
+  };
+
+  getOrderItems(pedido_id);
+  DB.db.transaction(
+    (tx) => {
+      tx.executeSql(
+        'SELECT * FROM pedido_itens WHERE id_pedido=?',
+        [pedido_id],
+        (_, results) => {
+          let rows = results.rows.raw();
+        },
+      ),
+        (error) => console.log(error);
+    },
+    (error) => console.log(error),
+  );
+  return (
+    <View style={styles.container}>
+      <Text style={styles.header}>
+        Quantidade Produto Preço Unitário Subtotal
+      </Text>
+      {orderItems.map((item) => (
+        <View style={styles.productDetails}>
+          <Text>
+            {item.quantidade} {item.nome} R${' '}
+            {parseFloat(item.preco).toFixed(2).replace('.', ',')} R${' '}
+            {parseFloat(item.quantidade * item.preco)
+              .toFixed(2)
+              .replace('.', ',')}
+          </Text>
+        </View>
+      ))}
+      <Text style={styles.footer}>
+        Total: R$ {total.toFixed(2).replace('.', ',')}
+      </Text>
     </View>
   );
 };
@@ -1318,6 +1479,7 @@ const App = () => {
         <Stack.Screen name="Nova Venda" component={ProductSell} />
         <Stack.Screen name="Escanear" component={NewScan} />
         <Stack.Screen name="Filtros" component={Filters} />
+        <Stack.Screen name="Detalhes do Pedido" component={orderDetails} />
       </Stack.Navigator>
     </NavigationContainer>
   );

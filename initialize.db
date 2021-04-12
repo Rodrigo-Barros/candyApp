@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS pedido_itens(
   id_pedido INTEGER,
   codigo_de_barras INTEGER,
   quantidade INTEGER,
-  preco INTEGER,
+  preco NUMERIC,
   FOREIGN KEY (codigo_de_barras) REFERENCES produtos(codigo_de_barras),
   FOREIGN KEY (id_pedido) REFERENCES pedidos(id)
 );

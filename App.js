@@ -1157,7 +1157,7 @@ const Filters = ({navigation}) => {
     DB.db.transaction((tx) => {
       tx.executeSql(
         `
-        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.preco) as total_pedido FROM usuarios
+        SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.preco * pedido_itens.quantidade) as total_pedido FROM usuarios
           INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
           INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
         WHERE pedidos.status="PROCESSADO"
@@ -1219,7 +1219,16 @@ const Filters = ({navigation}) => {
   };
 
   const viewOrderItens = (pedido_id) => {
+    console.log(pedido_id);
     navigation.navigate('Detalhes do Pedido', {pedido_id});
+  };
+
+  const styleOrderNotFinished = () => {
+    if (filterOptionValue != filterOptionList[1]) {
+      return {display: 'none'};
+    } else {
+      return styles.item.pay;
+    }
   };
 
   return (
@@ -1261,105 +1270,49 @@ const Filters = ({navigation}) => {
         />
       </Picker>
 
-      {/* selectByData */}
-      {filterItems.map((filter) =>
-        filterOptionValue == filterOptionList[0] ? (
-          <View style={styles.item}>
-            <Text style={styles.item.date}>
-              {new Date(filter.data_pedido).getDate() +
-                '/' +
-                new Date(filter.data_pedido).getMonth() +
-                '/' +
-                new Date(filter.data_pedido).getFullYear()}
-            </Text>
-            <Text style={styles.item.text}>id pedido: {filter.pedido_id}</Text>
-            <Text style={styles.item.text}>nome: {filter.nome}</Text>
-            <Text style={styles.item.text}>
-              total: R${' '}
-              {parseFloat(filter.total_pedido).toFixed(2).replace('.', ',')}
-            </Text>
-            <View style={styles.flexRow}>
-              <TouchableOpacity
-                style={styles.item.details}
-                onPress={() => viewOrderItens(filter.pedido_id)}>
-                <Text style={styles.item.details.btnDetails}>Detalhes</Text>
-              </TouchableOpacity>
+      <FlatList
+        data={filterItems}
+        renderItem={({item}) =>
+          filterOptionValue != 'Selecione' ? (
+            <View style={styles.item}>
+              <Text style={styles.item.date}>
+                {new Date(item.data_pedido).getDate() +
+                  '/' +
+                  new Date(item.data_pedido).getMonth() +
+                  '/' +
+                  new Date(item.data_pedido).getFullYear()}
+              </Text>
+              <Text style={styles.item.text}>id pedido: {item.pedido_id}</Text>
+              <Text style={styles.item.text}>nome: {item.nome}</Text>
+              <Text style={styles.item.text}>
+                total: R${' '}
+                {parseFloat(item.total_pedido).toFixed(2).replace('.', ',')}
+              </Text>
+              <View style={styles.flexRow}>
+                <TouchableOpacity
+                  style={styles.item.details}
+                  onPress={() => viewOrderItens(item.pedido_id)}>
+                  <Text style={styles.item.details.btnDetails}>Detalhes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styleOrderNotFinished()}
+                  onPress={() => markAsPayed(item.pedido_id)}>
+                  <Text style={styles.item.details.btnDetails}>
+                    Marcar como Pago
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        ) : (
-          <View></View>
-        ),
-      )}
-
-      {/* selectPaymentNotFinished */}
-      {filterItems.map((filter) =>
-        filterOptionValue == filterOptionList[1] ? (
-          <View style={styles.item}>
-            <Text style={styles.item.date}>
-              {new Date(filter.data_pedido).getDate() +
-                '/' +
-                new Date(filter.data_pedido).getMonth() +
-                '/' +
-                new Date(filter.data_pedido).getFullYear()}
-            </Text>
-            <Text style={styles.item.text}>id pedido: {filter.pedido_id}</Text>
-            <Text style={styles.item.text}>nome: {filter.nome}</Text>
-            <Text style={styles.item.text}>
-              total: R${' '}
-              {parseFloat(filter.total_pedido).toFixed(2).replace('.', ',')}
-            </Text>
-            <View style={styles.flexRow}>
-              <TouchableOpacity
-                style={styles.item.details}
-                onPress={() => viewOrderItens(filter.pedido_id)}>
-                <Text style={styles.item.details.btnDetails}>Detalhes</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.item.pay}
-                onPress={() => markAsPayed(filter.pedido_id)}>
-                <Text style={styles.item.pay.btnPay}>Marcar como Pago</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View></View>
-        ),
-      )}
-
-      {/* selectPaymentFinished */}
-      {filterItems.map((filter) =>
-        filterOptionValue == filterOptionList[2] ? (
-          <View style={styles.item}>
-            <Text style={styles.item.date}>
-              {new Date(filter.data_pedido).getDate() +
-                '/' +
-                new Date(filter.data_pedido).getMonth() +
-                '/' +
-                new Date(filter.data_pedido).getFullYear()}
-            </Text>
-            <Text style={styles.item.text}>id pedido: {filter.pedido_id}</Text>
-            <Text style={styles.item.text}>nome: {filter.nome}</Text>
-            <Text style={styles.item.text}>
-              total: R${' '}
-              {parseFloat(filter.total_pedido).toFixed(2).replace('.', ',')}
-            </Text>
-            <View style={styles.flexRow}>
-              <TouchableOpacity
-                style={styles.item.details}
-                onPress={() => viewOrderItens(filter.pedido_id)}>
-                <Text style={styles.item.details.btnDetails}>Detalhes</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View></View>
-        ),
-      )}
+          ) : (
+            <View></View>
+          )
+        }
+      />
     </View>
   );
 };
 
-const orderDetails = ({route}) => {
+const OrderDetails = ({route}) => {
   const styles = {
     container: {
       flex: 1,
@@ -1493,7 +1446,7 @@ const App = () => {
         <Stack.Screen name="Nova Venda" component={ProductSell} />
         <Stack.Screen name="Escanear" component={NewScan} />
         <Stack.Screen name="Filtros" component={Filters} />
-        <Stack.Screen name="Detalhes do Pedido" component={orderDetails} />
+        <Stack.Screen name="Detalhes do Pedido" component={OrderDetails} />
       </Stack.Navigator>
     </NavigationContainer>
   );

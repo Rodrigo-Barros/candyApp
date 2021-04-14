@@ -72,7 +72,12 @@ const Products = (props) => {
     },
   };
 
-  const {products, setProducts, navigation} = props;
+  //const {products, setProducts, navigation} = props;
+  //const {products, navigation, setProducts} = {...props};
+
+  // funcional
+  const {navigation} = props;
+  const [products, setProducts] = useState({...props.products});
   const deleteProduct = (id) => {
     DB.db.transaction((tx) => {
       tx.executeSql(
@@ -100,21 +105,25 @@ const Products = (props) => {
     });
   };
 
-  // load products only one time
+  // load products only when props.products changes
   useEffect(() => {
-    DB.getProducts((rows) => {
-      rows.map((row) => {
-        products.push({
-          name: row.nome,
-          price: row.preco,
-          quantity: row.quantidade,
-          codigo_de_barras: row.codigo_de_barras,
+    DB.db.transaction((tx) => {
+      tx.executeSql('SELECT * FROM produtos', [], (_, results) => {
+        let rows = results.rows.raw();
+        let temp = [];
+        rows.map((row) => {
+          temp.push({
+            name: row.nome,
+            price: row.preco,
+            quantity: row.quantidade,
+            codigo_de_barras: row.codigo_de_barras,
+          });
         });
+        setProducts(temp);
+        console.log(rows);
       });
-      // remove first element from array
-      products.shift();
     });
-  }, [products]);
+  }, [props.products]);
 
   return (
     <View style={styles.container}>
@@ -390,19 +399,24 @@ const Clients = (props) => {
       borderRadius: 10,
     },
   };
-  const {navigation, clients, setClients} = props;
+  //const {navigation, clients, setClients} = props;
+  const {navigation} = props;
+  const [clients, setClients] = useState({...props.clients});
   // only will update the component when the value
   // clients is changed
   useEffect(() => {
-    DB.getClients((rows) => {
-      rows.map((row) => {
-        clients.push({
-          name: row.nome,
+    DB.db.transaction((tx) => {
+      tx.executeSql('SELECT * FROM usuarios', [], (_, results) => {
+        let rows = results.rows.raw();
+        let temp = [];
+        rows.map((row) => {
+          temp.push({name: row.nome});
         });
+        setClients(temp);
+        console.log(rows);
       });
     });
-    clients.shift();
-  }, [clients]);
+  }, [props.clients]);
 
   return (
     <View style={styles.container}>
@@ -1442,7 +1456,7 @@ const orderDetails = ({route}) => {
 const App = () => {
   const Tab = createBottomTabNavigator();
   const Stack = createStackNavigator();
-  const [products, setProducts] = useState([{}]);
+  const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([{}]);
 
   const Tabs = () => {

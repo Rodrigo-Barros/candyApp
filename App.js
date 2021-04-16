@@ -515,7 +515,7 @@ const NewClient = (props) => {
   );
 };
 
-const ProductSell = ({navigation}) => {
+const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
   const styles = {
     container: {
       flex: 1,
@@ -589,9 +589,8 @@ const ProductSell = ({navigation}) => {
   const [productRows, setProductRows] = useState([]);
   const [orderItems, setOrderItems] = useState([]);
   const [paymentType, setPaymentType] = useState('NAO PROCESSADO');
-  const [disableAddButton, setDisableAddButton] = useState(false);
+  const [disableAddButton, setDisableAddButton] = useState(true);
   const [total, setTotal] = useState(0);
-  const [selectedProduct, setSelectedProduct] = useState(0);
 
   const [orderInfo, setOrderInfo] = useState({});
 
@@ -682,20 +681,6 @@ const ProductSell = ({navigation}) => {
       isMounted = false;
     };
   });
-  //console.log('pr', productRows);
-
-  // const products = [
-  //   {name: 'Neugebauer Cookies'},
-  //   {name: 'Neugebauer Branco'},
-  //   {name: 'Neugebauer Meio Amargo'},
-  // ];
-
-  // let productRows = [<Picker.Item value="selecione" label="Selecione" />];
-  // products.forEach((item, index) => {
-  //   productRows.push(
-  //     <Picker.Item value={item.name} label={item.name} key={index} />,
-  //   );
-  // });
 
   let productAmount = [<Picker.Item value="selecione" label="Selecione" />];
   for (let i = 1; i < 11; i++) {
@@ -734,7 +719,7 @@ const ProductSell = ({navigation}) => {
         <Text style={styles.inputLabel}>Produto:</Text>
         <Picker
           style={styles.picker}
-          selectedValue={selectedProduct}
+          selectedValue={parseInt(selectedProduct)}
           onValueChange={(value, index) => {
             let product = productRows[index];
             let amount = orderInfo.hasOwnProperty('produto')
@@ -747,7 +732,6 @@ const ProductSell = ({navigation}) => {
               estoque: product.quantidade,
               quantidade: amount,
             };
-            setOrderInfo(orderInfo);
           }}>
           {productRows.map((product) => (
             <Picker.Item
@@ -838,7 +822,10 @@ const ProductSell = ({navigation}) => {
           <Text style={styles.btnFinishText}>Adicionar</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.btnFinish} onPress={newSell}>
+        <TouchableOpacity
+          style={styles.btnFinish}
+          onPress={newSell}
+          disabled={disableAddButton}>
           <Text style={styles.btnFinishText}>Vender</Text>
         </TouchableOpacity>
       </View>
@@ -866,22 +853,18 @@ const ProductSell = ({navigation}) => {
   );
 };
 
-const NewScan = () => {
+const NewScan = (props) => {
   // const [count, setCount] = useState(0);
-  const [barcode, setBarcode] = useState('Escaneie um produto:');
+  const {navigation, selectedProduct, setSelectedProduct} = props;
   return (
     <QRCodeScanner
       onRead={(e) => {
-        console.log(e.data);
-        if (e.data === '7891330017256') {
-          var produto = 'Neugebauer Amendoim';
-        } else if (e.data === '7896058516104') {
-          var produto = 'Bala de Goma';
-        }
-        setBarcode(produto);
+        setSelectedProduct(e.data);
+        console.log('read product', typeof selectedProduct);
+        navigation.navigate('Nova Venda', {selectedProduct: e.data});
 
         //reativa o scanner
-        QRCodeScanner.scanner.reactivate();
+        //QRCodeScanner.scanner.reactivate();
       }}
       // this allow scanner being reactivate programmatically
       ref={(node) => {
@@ -890,7 +873,9 @@ const NewScan = () => {
       flashMode={RNCamera.Constants.FlashMode.auto}
       topContent={
         <TouchableOpacity>
-          <Text style={{marginBottom: 60, fontWeight: 'bold'}}>{barcode}</Text>
+          <Text style={{marginBottom: 60, fontWeight: 'bold'}}>
+            Escaneie um produto
+          </Text>
         </TouchableOpacity>
       }
     />
@@ -1040,15 +1025,6 @@ const HomePage = ({navigation}) => {
       backgroundColor: 'blue',
     },
   };
-
-  //return (
-  //  <View style={ss.container}>
-  //    <View style={ss.wrapper}>
-  //      <View style={ss.row} />
-  //      <View style={ss.row} />
-  //    </View>
-  //  </View>
-  //);
 
   return (
     <View style={styles.container}>
@@ -1272,6 +1248,7 @@ const Filters = ({navigation}) => {
 
       <FlatList
         data={filterItems}
+        keyExtractor={(_, index) => index.toString()}
         renderItem={({item}) =>
           filterOptionValue != 'Selecione' ? (
             <View style={styles.item}>
@@ -1411,6 +1388,7 @@ const App = () => {
   const Stack = createStackNavigator();
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([{}]);
+  const [selectedProduct, setSelectedProduct] = useState(0);
 
   const Tabs = () => {
     return (
@@ -1443,8 +1421,24 @@ const App = () => {
         <Stack.Screen name="Novo Cliente">
           {(props) => <NewClient {...props} clients={clients} />}
         </Stack.Screen>
-        <Stack.Screen name="Nova Venda" component={ProductSell} />
-        <Stack.Screen name="Escanear" component={NewScan} />
+        <Stack.Screen name="Nova Venda">
+          {(props) => (
+            <ProductSell
+              {...props}
+              selectedProduct={selectedProduct}
+              setSelectedProduct={setSelectedProduct}
+            />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="Escanear">
+          {(props) => (
+            <NewScan
+              {...props}
+              selectedProduct={selectedProduct}
+              setSelectedProduct={setSelectedProduct}
+            />
+          )}
+        </Stack.Screen>
         <Stack.Screen name="Filtros" component={Filters} />
         <Stack.Screen name="Detalhes do Pedido" component={OrderDetails} />
       </Stack.Navigator>

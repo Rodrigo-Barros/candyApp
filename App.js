@@ -83,12 +83,17 @@ const Products = (props) => {
       tx.executeSql(
         'DELETE FROM produtos WHERE codigo_de_barras=?',
         [id],
-        (_, result) => {
-          let rows = result.rows.raw();
-          console.log(result);
-          rows.map((row) => {
-            console.log(row);
-          });
+        () => {
+          products.map((product,index)=>{
+            if (product.codigo_de_barras == id) {
+              products.splice(index,1)
+              let temp = [];
+              products.map((product)=>{
+                temp.push(product);
+              });
+              setProducts(temp);
+            }   
+          })
         },
         (error) => {
           console.log(error);
@@ -108,7 +113,7 @@ const Products = (props) => {
   // load products only when props.products changes
   useEffect(() => {
     DB.db.transaction((tx) => {
-      tx.executeSql('SELECT * FROM produtos', [], (_, results) => {
+      tx.executeSql('SELECT * FROM produtos ORDER BY nome', [], (_, results) => {
         let rows = results.rows.raw();
         let temp = [];
         rows.map((row) => {
@@ -120,7 +125,7 @@ const Products = (props) => {
           });
         });
         setProducts(temp);
-        console.log(rows);
+        //console.log(rows);
       });
     });
   }, [props.products]);
@@ -164,7 +169,7 @@ const Products = (props) => {
 };
 
 // Here the user register new product
-const NewProduct = (props) => {
+const NewProduct = ({products, setProducts, navigation, route}) => {
   const styles = {
     container: {
       flex: 1,
@@ -201,7 +206,6 @@ const NewProduct = (props) => {
     },
   };
 
-  const {products, setProducts, navigation, route} = props;
   const product =
     typeof route.params == 'undefined' ? {} : route.params.product;
   const mode = typeof route.params == 'undefined' ? 'create' : 'update';
@@ -221,27 +225,26 @@ const NewProduct = (props) => {
 
   const insertNewProduct = () => {
     const db = DB.db;
-
     db.transaction((tx) => {
       tx.executeSql(
         `
         INSERT INTO produtos (nome,preco,codigo_de_barras,quantidade) 
         VALUES(?,?,?,?)`,
         [name, price, barcode, amount],
-        (tx, results) => {
-          products.push({
-            name,
-            price,
-            quantity: amount,
-          });
+        () => {
+          setProducts([...products,{
+            name, price, 
+            codigo_de_barras: barcode, quantity: amount
+          }]);
           navigation.navigate('Produtos');
         },
-        (error) => console.log('Error: ', error),
+        (error) => console.log('Error: ', error, barcode),
       );
     });
   };
 
   const updateProduct = () => {
+
     const db = DB.db;
 
     db.transaction((tx) => {
@@ -252,7 +255,7 @@ const NewProduct = (props) => {
         WHERE codigo_de_barras=?
         `,
         [name, price, amount, barcode],
-        (tx, results) => {
+        () => {
           products.push({
             name,
             price,
@@ -399,21 +402,40 @@ const Clients = (props) => {
       borderRadius: 10,
     },
   };
-  //const {navigation, clients, setClients} = props;
+
   const {navigation} = props;
   const [clients, setClients] = useState({...props.clients});
+  const deleteClient = (id) => {
+    DB.db.transaction(tx=>{
+      tx.executeSql("DELETE FROM usuarios WHERE id=?",[id],()=>{
+        // exclusão do usuario da interface
+        console.log('Usuário com id ' + id + ' foi excluído com sucesso do banco de dados');
+        clients.map((client,index)=>{
+          if( client.id == id ) {
+            clients.splice(index,1)
+            let temp = [];
+            clients.map((client)=>{
+              temp.push(client)
+            });
+            setClients(temp);
+          }    
+        })
+      },(error)=>{
+        console.log('Erro ao excluir o usuario: ', error);
+      })
+    })
+  }
   // only will update the component when the value
   // clients is changed
   useEffect(() => {
     DB.db.transaction((tx) => {
-      tx.executeSql('SELECT * FROM usuarios', [], (_, results) => {
+      tx.executeSql('SELECT * FROM usuarios ORDER BY nome', [], (_, results) => {
         let rows = results.rows.raw();
         let temp = [];
         rows.map((row) => {
-          temp.push({name: row.nome});
+          temp.push({name: row.nome, id: row.id});
         });
         setClients(temp);
-        console.log(rows);
       });
     });
   }, [props.clients]);
@@ -431,7 +453,7 @@ const Clients = (props) => {
               <TouchableOpacity style={styles.btnEdit}>
                 <Text style={styles.textWhite}>Editar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btnRemove}>
+              <TouchableOpacity style={styles.btnRemove} onPress={async ()=>{deleteClient(item.id)}}>
                 <Text style={styles.textWhite}>Excluir</Text>
               </TouchableOpacity>
             </View>
@@ -448,7 +470,7 @@ const Clients = (props) => {
   );
 };
 
-const NewClient = (props) => {
+const NewClient = ({navigation,clients,setClients}) => {
   const styles = {
     container: {
       flex: 1,
@@ -481,17 +503,19 @@ const NewClient = (props) => {
       fontWeight: 'bold',
     },
   };
-  const {navigation, clients} = props;
+  //const {navigation, clients} = props;
   const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
   const insertNewClient = () => {
     const db = DB.db;
     db.transaction((tx) => {
       tx.executeSql(
-        `INSERT INTO usuarios (nome) VALUES ("${clientName}")`,
-        [],
-        (_, results) => {
+        `INSERT INTO usuarios (nome,celular) VALUES (?,?)`,
+        [clientName, clientPhone],
+        () => {
           console.log(`Usuário ${clientName} inserido com sucesso`);
-          clients.push({name: clientName});
+          //clients.push({name: clientName});
+          setClients([...clients,{name:clientName}]);
           navigation.navigate('Clientes');
         },
         (error) => console.log('erro ao inserir o usuário ', error),
@@ -500,11 +524,18 @@ const NewClient = (props) => {
   };
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Novo Cliente:</Text>
+      <Text style={styles.label}>Cliente:</Text>
       <TextInput
         style={styles.input}
         onChangeText={(value) => setClientName(value)}
         placeholder="Digite o nome do cliente"
+      />
+      <Text style={styles.label}>Telefone:</Text>
+      <TextInput
+        style={styles.input}
+        onChangeText={(value) => setClientPhone(value)}
+        keyboardType="number"
+        placeholder="Digite o telefone do cliente"
       />
       <TouchableOpacity
         style={styles.btnAddNewClient}
@@ -641,7 +672,9 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
   };
 
   const newSell = () => {
+    const start = new Date();
     DB.db.transaction((tx) => {
+      console.log('iniciando a venda');
       tx.executeSql(
         'INSERT INTO pedidos (id_usuario,status) VALUES (?,?) ',
         [orderInfo.cliente.id, paymentType],
@@ -669,6 +702,9 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
           (error) => console.log('Erro ao inserir os itens do pedido ', error),
         );
         console.log('transação finalizada');
+        const end = new Date();
+        const tookTime = (end - start) / 1000;
+        console.log(tookTime);
       });
     });
   };
@@ -1325,6 +1361,7 @@ const OrderDetails = ({route}) => {
 
   const getOrderItems = (orderId) => {
     DB.db.transaction((tx) => {
+      console.log('iniciando transação');
       tx.executeSql(
         `SELECT pedido_itens.preco,pedido_itens.quantidade,produtos.nome FROM pedido_itens
           INNER JOIN produtos ON produtos.codigo_de_barras=pedido_itens.codigo_de_barras
@@ -1332,6 +1369,7 @@ const OrderDetails = ({route}) => {
         [orderId],
         (_, results) => {
           let items = results.rows.raw();
+          console.log(items);
           let pushItems = [];
           let local_total = 0;
           items.map((item) => {
@@ -1345,21 +1383,24 @@ const OrderDetails = ({route}) => {
       );
     });
   };
+  useState(()=>{
+    console.log(route.params);
+    getOrderItems(pedido_id);
+  }, pedido_id);
 
-  getOrderItems(pedido_id);
-  DB.db.transaction(
-    (tx) => {
-      tx.executeSql(
-        'SELECT * FROM pedido_itens WHERE id_pedido=?',
-        [pedido_id],
-        (_, results) => {
-          let rows = results.rows.raw();
-        },
-      ),
-        (error) => console.log(error);
-    },
-    (error) => console.log(error),
-  );
+  // DB.db.transaction(
+  //   (tx) => {
+  //     tx.executeSql(
+  //       'SELECT * FROM pedido_itens WHERE id_pedido=?',
+  //       [pedido_id],
+  //       (_, results) => {
+  //         let rows = results.rows.raw();
+  //       },
+  //     ),
+  //       (error) => console.log(error);
+  //   },
+  //   (error) => console.log(error),
+  // );
   return (
     <View style={styles.container}>
       <Text style={styles.header}>
@@ -1416,10 +1457,10 @@ const App = () => {
       <Stack.Navigator /*headerMode="none" */>
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="Novo Produto">
-          {(props) => <NewProduct {...props} products={products} />}
+          {(props) => <NewProduct {...props} products={products} setProducts={setProducts}/>}
         </Stack.Screen>
         <Stack.Screen name="Novo Cliente">
-          {(props) => <NewClient {...props} clients={clients} />}
+          {(props) => <NewClient {...props} clients={clients} setClients={setClients} />}
         </Stack.Screen>
         <Stack.Screen name="Nova Venda">
           {(props) => (

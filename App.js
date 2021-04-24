@@ -531,7 +531,7 @@ const NewClient = ({navigation,clients,setClients}) => {
       <TextInput
         style={styles.input}
         onChangeText={(value) => setClientPhone(value)}
-        keyboardType="number"
+        keyboardType="numeric"
         placeholder="Digite o telefone do cliente"
       />
       <TouchableOpacity
@@ -689,9 +689,9 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
 
   const newSell = () => {
     if( toggleCheckBox ) {
-      if (orderInfo.cliente.celular == null) {
-        console.log("o ooo");
-        ToastAndroid.show("O cliente não tem um celular cadastrado.",ToastAndroid.LONG);
+
+      if (orderInfo.cliente.celular == null || orderInfo.cliente.celular == "") {
+        return ToastAndroid.show("O cliente não tem um celular cadastrado.",ToastAndroid.LONG);
       }
       setSendReport(true);
       let reportText = report;
@@ -704,7 +704,6 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       setReport(reportText);
     }
     else setSendReport(false);
-    return ;
 
     db.transaction((tx) => {
       console.log('iniciando a venda');

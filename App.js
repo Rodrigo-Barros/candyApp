@@ -19,6 +19,8 @@ import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import SQLite from 'react-native-sqlite-storage';
 import RadioForm from 'react-native-simple-radio-button';
+import CheckBox from '@react-native-community/checkbox';
+import { WebView } from 'react-native-webview';
 
 const Products = (props) => {
   const styles = {
@@ -79,7 +81,7 @@ const Products = (props) => {
   const {navigation} = props;
   const [products, setProducts] = useState({...props.products});
   const deleteProduct = (id) => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql(
         'DELETE FROM produtos WHERE codigo_de_barras=?',
         [id],
@@ -112,7 +114,7 @@ const Products = (props) => {
 
   // load products only when props.products changes
   useEffect(() => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql('SELECT * FROM produtos ORDER BY nome', [], (_, results) => {
         let rows = results.rows.raw();
         let temp = [];
@@ -224,7 +226,6 @@ const NewProduct = ({products, setProducts, navigation, route}) => {
   );
 
   const insertNewProduct = () => {
-    const db = DB.db;
     db.transaction((tx) => {
       tx.executeSql(
         `
@@ -244,9 +245,6 @@ const NewProduct = ({products, setProducts, navigation, route}) => {
   };
 
   const updateProduct = () => {
-
-    const db = DB.db;
-
     db.transaction((tx) => {
       tx.executeSql(
         `
@@ -406,7 +404,7 @@ const Clients = (props) => {
   const {navigation} = props;
   const [clients, setClients] = useState({...props.clients});
   const deleteClient = (id) => {
-    DB.db.transaction(tx=>{
+    db.transaction(tx=>{
       tx.executeSql("DELETE FROM usuarios WHERE id=?",[id],()=>{
         // exclusão do usuario da interface
         console.log('Usuário com id ' + id + ' foi excluído com sucesso do banco de dados');
@@ -428,7 +426,7 @@ const Clients = (props) => {
   // only will update the component when the value
   // clients is changed
   useEffect(() => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql('SELECT * FROM usuarios ORDER BY nome', [], (_, results) => {
         let rows = results.rows.raw();
         let temp = [];
@@ -507,7 +505,6 @@ const NewClient = ({navigation,clients,setClients}) => {
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const insertNewClient = () => {
-    const db = DB.db;
     db.transaction((tx) => {
       tx.executeSql(
         `INSERT INTO usuarios (nome,celular) VALUES (?,?)`,
@@ -585,10 +582,6 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       fontWeight: 'bold',
       textAlign: 'center',
     },
-    radioForm: {
-      marginTop: 5,
-      marginLeft: '5%',
-    },
     wrapperInput: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -598,6 +591,16 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       justifyContent: 'space-between',
       marginLeft: '5%',
       marginRight: '5%',
+    },
+    row: {
+      flexDirection: 'row',
+      marginLeft: '5%',
+      marginRight: '5%',
+      marginTop: 5,
+      justifyContent: 'space-around'
+    },
+    checkboxText: {
+      marginTop: 5
     },
     orderDetails: {
       title: {
@@ -624,10 +627,11 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
   const [total, setTotal] = useState(0);
 
   const [orderInfo, setOrderInfo] = useState({});
+  const [report, setReport] = useState("Detalhes do Pedido: ");
+  const [orderId, setOrderId ] = useState(0);
 
   const selectClientsList = async (isMounted) => {
     return new Promise((resolve, reject) => {
-      const db = DB.db;
       db.transaction((tx) => {
         tx.executeSql(
           'SELECT * FROM usuarios',
@@ -644,13 +648,12 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       });
     }).then((rows) => {
       //console.log(rows);
-      if (isMounted) setClientsRows(rows);
+      setClientsRows(rows);
     });
   };
 
   const selectProductsList = async (isMounted) => {
     return new Promise((resolve, reject) => {
-      const db = DB.db;
       db.transaction((tx) => {
         tx.executeSql(
           'SELECT * FROM produtos',
@@ -667,13 +670,30 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       });
     }).then((rows) => {
       //console.log(rows);
-      if (isMounted) setProductRows(rows);
+      setProductRows(rows);
     });
   };
 
+  const selectOrderId = async (isMounted) => {
+    db.transaction(tx=>{
+      tx.executeSql("SELECT id + 1 as id FROM pedidos ORDER BY id DESC LIMIT 1",[],(_,results)=>{
+        let rows = results.rows.raw();
+        rows.map(row => setOrderId(row.id))
+      })
+    })
+  } 
+
   const newSell = () => {
-    const start = new Date();
-    DB.db.transaction((tx) => {
+    if( toggleCheckBox ) {
+      setSendReport(true);
+      let reportText = report;
+      reportText += orderId;
+      setReport(reportText);
+    }
+    else setSendReport(false);
+    return ;
+
+    db.transaction((tx) => {
       console.log('iniciando a venda');
       tx.executeSql(
         'INSERT INTO pedidos (id_usuario,status) VALUES (?,?) ',
@@ -702,21 +722,15 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
           (error) => console.log('Erro ao inserir os itens do pedido ', error),
         );
         console.log('transação finalizada');
-        const end = new Date();
-        const tookTime = (end - start) / 1000;
-        console.log(tookTime);
       });
     });
   };
 
   useEffect(() => {
-    let isMounted = true;
-    selectProductsList(isMounted);
-    selectClientsList(isMounted);
-    return () => {
-      isMounted = false;
-    };
-  });
+    selectProductsList();
+    selectClientsList();
+    selectOrderId();
+  },[]);
 
   let productAmount = [<Picker.Item value="selecione" label="Selecione" />];
   for (let i = 1; i < 11; i++) {
@@ -724,6 +738,8 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       <Picker.Item value={i} label={i.toString()} key={i.toString()} />,
     );
   }
+  const [toggleCheckBox, setToggleCheckBox] = useState(false)
+  const [sendReport, setSendReport] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -809,8 +825,8 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       </View>
       {/*Payment Type*/}
       <Text style={styles.inputLabel}>Tipo de pagamento:</Text>
+    <View style={styles.row}>
       <RadioForm
-        style={styles.radioForm}
         radio_props={[
           {label: 'á receber  ', value: 'NAO PROCESSADO'},
           {label: 'recebido', value: 'PROCESSADO'},
@@ -820,14 +836,26 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
           setPaymentType(value);
         }}
       />
-      <TouchableOpacity
+      <CheckBox
+        disabled={false}
+        value={toggleCheckBox}
+        onValueChange={(newValue) => setToggleCheckBox(newValue)}
+      />
+      <Text style={styles.checkboxText}>Whatsapp</Text>
+      </View>
+    {(sendReport) ? (
+      <WebView source={{uri:'https://wa.me/5511992798005'}} />
+    )
+    : <View/> 
+    }
+    <Text>{report}</Text>
+    <TouchableOpacity
         style={styles.btnScan}
         onPress={() => {
           navigation.navigate('Escanear');
         }}>
         <Text style={styles.btnScanText}>Ler Códigos de Barras</Text>
       </TouchableOpacity>
-
       {/*Adicionar*/}
       <View style={styles.wrapperRow}>
         <TouchableOpacity
@@ -918,19 +946,20 @@ const NewScan = (props) => {
   );
 };
 
-class DB {
-  static db = SQLite.openDatabase(
+  const db = SQLite.openDatabase(
     'candy.db',
-    '1,0',
+    '1.0',
     'candy',
     20000,
     () => console.log('banco de dados aberto'),
     (error) => console.log('error', error),
   );
 
+class DB {
+
   static initializeDB() {
     // usuarios
-    this.db.executeSql(
+    db.executeSql(
       `
         CREATE TABLE IF NOT EXISTS usuarios(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -943,7 +972,7 @@ class DB {
       (error) => console.log('Erro ao criar tabela usuarios: ', error),
     );
     // produtos
-    this.db.executeSql(
+    db.executeSql(
       `
         CREATE TABLE IF NOT EXISTS produtos(
           codigo_de_barras INTEGER PRIMARY KEY,
@@ -957,7 +986,7 @@ class DB {
       (error) => console.log('Erro ao criar tabela produtos: ', error),
     );
     // pedidos
-    this.db.executeSql(
+    db.executeSql(
       `
         CREATE TABLE IF NOT EXISTS pedidos(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -971,7 +1000,7 @@ class DB {
       () => console.log('Tabela pedidos criada com sucesso'),
       (error) => console.log('Erro ao criar tabela pedidos: ', error),
     );
-    this.db.executeSql(
+    db.executeSql(
       `
         CREATE TABLE IF NOT EXISTS pedido_itens(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -990,7 +1019,7 @@ class DB {
   }
 
   static getProducts(callback) {
-    this.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql('SELECT * FROM produtos', [], (_, results) => {
         let rows = results.rows.raw();
         callback(rows);
@@ -999,7 +1028,7 @@ class DB {
   }
 
   static getClients(callback) {
-    this.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql(
         'SELECT * FROM usuarios',
         [],
@@ -1013,7 +1042,7 @@ class DB {
   }
 
   static selectClients(callback) {
-    this.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql('SELECT * FROM usuarios', [], (_, results) => {
         const rows = results.rows.raw();
         callback(rows);
@@ -1141,7 +1170,7 @@ const Filters = ({navigation}) => {
   const filterOptionList = ['Data', 'Pedidos em aberto', 'Pedidos finalizados'];
 
   const selectPaymentNotFinished = () => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql(
         `
         SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.preco * pedido_itens.quantidade) as total_pedido FROM usuarios
@@ -1149,7 +1178,7 @@ const Filters = ({navigation}) => {
           INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
         WHERE pedidos.status="NAO PROCESSADO"
         GROUP BY pedido_itens.id_pedido
-        ORDER BY pedidos.data_pedido`,
+        ORDER BY pedidos.id DESC`,
         [],
         (_, results) => {
           let rows = results.rows.raw();
@@ -1166,7 +1195,7 @@ const Filters = ({navigation}) => {
   };
 
   const selectPaymentFinished = () => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql(
         `
         SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.preco * pedido_itens.quantidade) as total_pedido FROM usuarios
@@ -1174,7 +1203,7 @@ const Filters = ({navigation}) => {
           INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
         WHERE pedidos.status="PROCESSADO"
         GROUP BY pedido_itens.id_pedido
-        ORDER BY pedidos.data_pedido`,
+        ORDER BY pedidos.id DESC`,
         [],
         (_, results) => {
           let rows = results.rows.raw();
@@ -1190,7 +1219,7 @@ const Filters = ({navigation}) => {
   };
 
   const selectByDate = () => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql(
         `
         SELECT pedidos.id as pedido_id, pedidos.data_pedido,usuarios.nome,SUM(pedido_itens.quantidade * pedido_itens.preco) as total_pedido,
@@ -1198,7 +1227,7 @@ const Filters = ({navigation}) => {
         INNER JOIN pedidos ON pedidos.id_usuario=usuarios.id
         INNER JOIN pedido_itens ON pedido_itens.id_pedido=pedidos.id
         GROUP BY pedido_itens.id_pedido
-        ORDER BY pedidos.data_pedido DESC
+        ORDER BY pedidos.id DESC
       `,
         [],
         (_, results) => {
@@ -1217,7 +1246,7 @@ const Filters = ({navigation}) => {
   };
 
   const markAsPayed = (pedido_id) => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       tx.executeSql(
         'UPDATE pedidos SET status=? WHERE id=?',
         ['PROCESSADO', pedido_id],
@@ -1360,7 +1389,7 @@ const OrderDetails = ({route}) => {
   const [total, setTotal] = useState(0);
 
   const getOrderItems = (orderId) => {
-    DB.db.transaction((tx) => {
+    db.transaction((tx) => {
       console.log('iniciando transação');
       tx.executeSql(
         `SELECT pedido_itens.preco,pedido_itens.quantidade,produtos.nome FROM pedido_itens

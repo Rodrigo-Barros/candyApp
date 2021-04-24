@@ -647,7 +647,7 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
         );
       });
     }).then((rows) => {
-      //console.log(rows);
+      console.log(rows);
       setClientsRows(rows);
     });
   };
@@ -681,13 +681,26 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
         rows.map(row => setOrderId(row.id))
       })
     })
-  } 
+  }
+
+  const formatToReal = (value) => {
+    return "R$ " + value.toFixed(2).replace('.',',');
+  }
 
   const newSell = () => {
     if( toggleCheckBox ) {
+      if (orderInfo.cliente.celular == null) {
+        console.log("o ooo");
+        ToastAndroid.show("O cliente não tem um celular cadastrado.",ToastAndroid.LONG);
+      }
       setSendReport(true);
       let reportText = report;
-      reportText += orderId;
+      reportText += orderId + "\n";
+      orderItems.map(item=>{
+        reportText+= item.quantidade + " " + item.nome + " " + formatToReal( item.preco ) + " " + formatToReal( item.subtotal ) + "\n";
+      })
+      reportText += "Total do pedido: " + formatToReal(total);
+      reportText = encodeURI(reportText);
       setReport(reportText);
     }
     else setSendReport(false);
@@ -748,11 +761,13 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
         <Text style={styles.inputLabel}>Cliente:</Text>
         <Picker
           style={styles.picker}
-          onValueChange={(value) => {
-            let client = clientRows[value];
+          onValueChange={(value,index) => {
+            let client = clientRows[index];
+            console.log(client);
             orderInfo.cliente = {
               nome: client.nome,
               id: client.id,
+              celular: client.celular
             };
             setOrderInfo(orderInfo);
           }}
@@ -843,12 +858,11 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       />
       <Text style={styles.checkboxText}>Whatsapp</Text>
       </View>
-    {(sendReport) ? (
-      <WebView source={{uri:'https://wa.me/5511992798005'}} />
+    {(sendReport && orderInfo.cliente.celular != null) ? (
+      <WebView source={{uri:'https://wa.me/55' + orderInfo.cliente.celular + '?text=' + report}} />
     )
     : <View/> 
     }
-    <Text>{report}</Text>
     <TouchableOpacity
         style={styles.btnScan}
         onPress={() => {

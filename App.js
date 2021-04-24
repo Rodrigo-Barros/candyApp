@@ -858,7 +858,9 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
       <Text style={styles.checkboxText}>Whatsapp</Text>
       </View>
     {(sendReport && orderInfo.cliente.celular != null) ? (
-      <WebView source={{uri:'https://wa.me/55' + orderInfo.cliente.celular + '?text=' + report}} />
+      <View style={{display:'none'}}>
+        <WebView source={{uri:'https://wa.me/55' + orderInfo.cliente.celular + '?text=' + report}} />
+      </View>
     )
     : <View/> 
     }

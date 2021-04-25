@@ -543,7 +543,7 @@ const NewClient = ({navigation,clients,setClients}) => {
   );
 };
 
-const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
+const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, orderInfo, setOrderInfo}) => {
   const styles = {
     container: {
       flex: 1,
@@ -621,12 +621,10 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
 
   const [clientRows, setClientsRows] = useState([]);
   const [productRows, setProductRows] = useState([]);
-  const [orderItems, setOrderItems] = useState([]);
   const [paymentType, setPaymentType] = useState('NAO PROCESSADO');
   const [disableAddButton, setDisableAddButton] = useState(true);
   const [total, setTotal] = useState(0);
 
-  const [orderInfo, setOrderInfo] = useState({});
   const [report, setReport] = useState("Detalhes do Pedido: ");
   const [orderId, setOrderId ] = useState(0);
 
@@ -866,8 +864,8 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
     }
     <TouchableOpacity
         style={styles.btnScan}
-        onPress={() => {
-          navigation.navigate('Escanear');
+    onPress={() => {
+      navigation.navigate('Escanear',{products: productRows});
         }}>
         <Text style={styles.btnScanText}>Ler Códigos de Barras</Text>
       </TouchableOpacity>
@@ -932,13 +930,31 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct}) => {
   );
 };
 
-const NewScan = (props) => {
+const NewScan = ({navigation, selectedProduct, setSelectedProduct, orderInfo, setOrderInfo, route}) => {
   // const [count, setCount] = useState(0);
-  const {navigation, selectedProduct, setSelectedProduct} = props;
+  // const {navigation, selectedProduct, setSelectedProduct, orderInfo, setOrderInfo} = props;
   return (
     <QRCodeScanner
       onRead={(e) => {
+        const scanedValue = e.data;
+        const {products} = route.params;
+        let produto={};
+        products.map(product=>{
+          if ( product.codigo_de_barras == scanedValue ) {
+            console.log('p',product)
+            produto = {
+              nome: product.nome,
+              estoque: product.quantidade,
+              codigo_de_barras: product.codigo_de_barras,
+              preco: product.preco,
+              quantidade: orderInfo.produto.quantidade ?? 0
+            };
+          }
+        })
+        console.log(orderInfo)
+        setOrderInfo({...orderInfo,produto});
         setSelectedProduct(e.data);
+        
         console.log('read product', typeof selectedProduct);
         navigation.navigate('Nova Venda', {selectedProduct: e.data});
 
@@ -1474,6 +1490,8 @@ const App = () => {
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([{}]);
   const [selectedProduct, setSelectedProduct] = useState(0);
+  const [orderItems, setOrderItems] = useState([]);
+  const [orderInfo, setOrderInfo] = useState({});
 
   const Tabs = () => {
     return (
@@ -1512,6 +1530,10 @@ const App = () => {
               {...props}
               selectedProduct={selectedProduct}
               setSelectedProduct={setSelectedProduct}
+              orderItems={orderItems}
+              setOrderItems={setOrderItems}
+              orderInfo={orderInfo}
+              setOrderInfo={setOrderInfo}
             />
           )}
         </Stack.Screen>
@@ -1521,6 +1543,8 @@ const App = () => {
               {...props}
               selectedProduct={selectedProduct}
               setSelectedProduct={setSelectedProduct}
+              orderInfo={orderInfo}
+              setOrderInfo={setOrderInfo}
             />
           )}
         </Stack.Screen>

@@ -714,7 +714,7 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
       orderItems.map((produto) => {
         console.log(produto);
         tx.executeSql(
-          'INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES (last_insert_rowid(),?,?,?)',
+          'INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES ((SELECT id FROM pedidos ORDER BY id DESC LIMIT 1),?,?,?)',
           [produto.codigo_de_barras, produto.quantidade, produto.preco],
           () =>
             console.log(
@@ -1484,6 +1484,49 @@ const OrderDetails = ({route}) => {
   );
 };
 
+
+const InsertScreen =() =>{
+  const order = {
+    items:[
+      {nome: "Snickers", quantidade:1, preco:3, codigo_de_barras:123},
+      {nome: "Bala de goma", quantidade: 1, preco: 1, codigo_de_barras:1234},
+    ],
+    cliente: { id: 1 },
+    status: "NAO PROCESSADO"
+  };
+
+  const makeSell = () =>{
+    db.transaction(tx=>{
+      tx.executeSql(
+        "INSERT INTO pedidos (id_usuario,status) VALUES (?,?)",
+        [order.cliente.id, order.status],
+        ()=>{},
+        (e)=>console.log(e)
+      )
+
+      try {
+        order.items.forEach(produto=>{
+          db.executeSql(
+              `INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade, preco) 
+            VALUES((SELECT id FROM pedidos ORDER BY id DESC LIMIT 1), ?,?,?)`,
+            [produto.codigo_de_barras, produto.quantidade, produto.preco],
+            ()=>console.log(produto, "inserido com sucesso no banco de dados"),
+            (e)=>console.log(e)
+          )
+          })
+      }
+      catch (e) {
+        console.log(e);
+      }
+    })
+  }
+  return (
+    <View>
+      <Button onPress={makeSell} title="Vender" />
+    </View>
+  )
+}
+
 const App = () => {
   const Tab = createBottomTabNavigator();
   const Stack = createStackNavigator();
@@ -1497,6 +1540,7 @@ const App = () => {
     return (
       <Tab.Navigator>
         <Tab.Screen name="Inicio" component={HomePage} />
+        <Tab.Screen name="Insert" component={InsertScreen} />
         <Tab.Screen name="Clientes">
           {(props) => (
             <Clients {...props} clients={clients} setClients={setClients} />

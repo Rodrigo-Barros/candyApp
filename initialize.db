@@ -31,18 +31,18 @@ CREATE TABLE IF NOT EXISTS pedido_itens(
 );
 
 -- novo usuário
-INSERT INTO usuarios (nome,celular) VALUES('Rodrigo','11992798005');
+INSERT INTO usuarios (nome,celular) VALUES('Bolivia','1199999999');
 
 -- novo produto
-INSERT INTO produtos (nome,preco,quantidade,codigo_de_barras) VALUES('Neugebauer Amendoim',5.0,10,78900001923);
+INSERT INTO produtos (nome,preco,quantidade,codigo_de_barras) VALUES('Snickers',3.0,10,123), ('Bala de Goma',1.0,10,1234);
 
 -- novo pedido
-INSERT INTO pedidos (id_usuario) VALUES(1);
-INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES(1,78900001923,2,5);
-UPDATE produtos SET quantidade=quantidade-1 WHERE codigo_de_barras=78900001923;
-
-
-SELECT * FROM usuarios;
-SELECT * FROM produtos;
-SELECT * FROM pedidos;
-SELECT * FROM pedido_itens;
+-- INSERT INTO pedidos (id_usuario) VALUES(1);
+-- INSERT INTO pedido_itens (id_pedido,codigo_de_barras,quantidade,preco) VALUES(1,78900001923,2,5);
+-- UPDATE produtos SET quantidade=quantidade-1 WHERE codigo_de_barras=78900001923;
+-- 
+-- 
+-- SELECT * FROM usuarios;
+-- SELECT * FROM produtos;
+-- SELECT * FROM pedidos;
+-- SELECT * FROM pedido_itens;

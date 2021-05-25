@@ -1,0 +1,44 @@
+#!/bin/sh
+WORKING_DIR=$(dirname $0)
+
+app_location="/data/data/com.candy"
+db="$app_location/databases/candy.db"
+config=".headers on"
+#last_order_id="SELECT id FROM pedidos ORDER BY id DESC LIMIT 1"
+#order_items="SELECT * FROM pedido_itens WHERE id_pedido = ($last_order_id)"
+#
+#
+#adb exec-out sqlite3 -line $db "$order_items"
+
+# query database
+query_pedido(){
+adb shell sqlite3 $db << EOF
+$config
+SELECT * FROM pedido_itens;
+EOF
+}
+
+# reset database
+reset_db(){
+adb push $WORKING_DIR/initialize.db $app_location/initialize.db
+adb shell sqlite3 $db << EOF
+$config
+DROP TABLE pedido_itens;
+DROP TABLE pedidos;
+DROP TABLE produtos;
+DROP TABLE usuarios;
+.tables
+
+.read $app_location/initialize.db
+EOF
+}
+
+case $1 in 
+  --query)
+    query_pedido;;
+  --reset)
+    reset_db;;
+  *)
+    echo "--query \n --reset_db";;
+esac
+

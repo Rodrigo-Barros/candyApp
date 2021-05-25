@@ -543,7 +543,7 @@ const NewClient = ({navigation,clients,setClients}) => {
   );
 };
 
-const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, orderInfo, setOrderInfo}) => {
+const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItems, setOrderItems, orderInfo, setOrderInfo}) => {
   const styles = {
     container: {
       flex: 1,
@@ -628,6 +628,11 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
   const [report, setReport] = useState("Detalhes do Pedido: ");
   const [orderId, setOrderId ] = useState(0);
 
+  const [toggleCheckBox, setToggleCheckBox] = useState(false)
+  const [sendReport, setSendReport] = useState(false);
+  const [userValue, setUserValue] = useState(0);
+  const [productAmountValue, setProductAmountValue ] = useState(0);
+
   const selectClientsList = async (isMounted) => {
     return new Promise((resolve, reject) => {
       db.transaction((tx) => {
@@ -672,13 +677,16 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
     });
   };
 
-  const selectOrderId = async (isMounted) => {
-    db.transaction(tx=>{
-      tx.executeSql("SELECT id + 1 as id FROM pedidos ORDER BY id DESC LIMIT 1",[],(_,results)=>{
-        let rows = results.rows.raw();
-        rows.map(row => setOrderId(row.id))
-      })
-    })
+  const resetView = () => {
+    setOrderItems([]);
+    setOrderInfo({});
+    setDisableAddButton(true);
+    setTotal(0);
+    setReport("Detalhes do Pedido: ");
+    setSelectedProduct(0);
+    setUserValue(0);
+    setProductAmountValue(0);
+    ToastAndroid.show("Venda efetuada", ToastAndroid.LONG);
   }
 
   const formatToReal = (value) => {
@@ -734,12 +742,12 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
         console.log('transação finalizada');
       });
     });
+    resetView();
   };
 
   useEffect(() => {
     selectProductsList();
     selectClientsList();
-    selectOrderId();
   },[]);
 
   let productAmount = [<Picker.Item value="selecione" label="Selecione" />];
@@ -748,8 +756,6 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
       <Picker.Item value={i} label={i.toString()} key={i.toString()} />,
     );
   }
-  const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  const [sendReport, setSendReport] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -759,6 +765,7 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
         <Picker
           style={styles.picker}
           onValueChange={(value,index) => {
+            setUserValue(value);
             let client = clientRows[index];
             console.log(client);
             orderInfo.cliente = {
@@ -768,7 +775,7 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
             };
             setOrderInfo(orderInfo);
           }}
-          selectedValue={0}>
+          selectedValue={userValue}>
           {clientRows.map((client, index) => (
             <Picker.Item
               label={client.nome}
@@ -778,13 +785,14 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
           ))}
         </Picker>
       </View>
-      {/*Products*/}
+      {/* Products*/}
       <View style={styles.wrapperInput}>
         <Text style={styles.inputLabel}>Produto:</Text>
         <Picker
           style={styles.picker}
           selectedValue={parseInt(selectedProduct)}
           onValueChange={(value, index) => {
+            setSelectedProduct(value);
             let product = productRows[index];
             let amount = orderInfo.hasOwnProperty('produto')
               ? orderInfo.produto.quantidade
@@ -811,7 +819,9 @@ const ProductSell = ({navigation, selectedProduct, orderItems, setOrderItems, or
         <Text style={styles.inputLabel}>Quantidade:</Text>
         <Picker
           style={styles.picker}
+          selectedValue={productAmountValue}
           onValueChange={(value) => {
+            setProductAmountValue(value);
             let amount = value;
             let product = orderInfo.produto;
             orderInfo.produto.quantidade = amount;

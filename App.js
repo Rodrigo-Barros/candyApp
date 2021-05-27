@@ -655,6 +655,21 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
     });
   };
 
+
+  const lastOrderId = () => {
+    return new Promise((resolve)=>{
+      db.transaction(tx=>{
+        tx.executeSql("SELECT id FROM pedidos ORDER BY id DESC LIMIT 1",[],(_,results)=>{
+          let rows = results.rows.raw();
+          rows.map(row => { 
+            setOrderId(row.id + 1) 
+            resolve(row.id)
+          })
+        })
+      })
+    });
+  }
+
   const selectProductsList = async (isMounted) => {
     return new Promise((resolve, reject) => {
       db.transaction((tx) => {
@@ -679,10 +694,9 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
 
   const resetView = () => {
     setOrderItems([]);
-    setOrderInfo({});
+    //setOrderInfo({});
     setDisableAddButton(true);
     setTotal(0);
-    setReport("Detalhes do Pedido: ");
     setSelectedProduct(0);
     setUserValue(0);
     setProductAmountValue(0);
@@ -693,14 +707,16 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
     return "R$ " + value.toFixed(2).replace('.',',');
   }
 
-  const newSell = () => {
-    if( toggleCheckBox ) {
+  const newSell = async () => {
+    setOrderId(orderId + 1);
+      if( toggleCheckBox ) {
 
       if (orderInfo.cliente.celular == null || orderInfo.cliente.celular == "") {
         return ToastAndroid.show("O cliente não tem um celular cadastrado.",ToastAndroid.LONG);
       }
       setSendReport(true);
-      let reportText = report;
+      console.warn(orderId);
+      let reportText = "Detalhes do Pedido: ";
       reportText += orderId + "\n";
       orderItems.map(item=>{
         reportText+= item.quantidade + " " + item.nome + " " + formatToReal( item.preco ) + " " + formatToReal( item.subtotal ) + "\n";
@@ -708,6 +724,7 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
       reportText += "Total do pedido: " + formatToReal(total);
       reportText = encodeURI(reportText);
       setReport(reportText);
+      setTimeout(resetView,5000);
     }
     else setSendReport(false);
 
@@ -748,6 +765,7 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
   useEffect(() => {
     selectProductsList();
     selectClientsList();
+    lastOrderId();
   },[]);
 
   let productAmount = [<Picker.Item value="selecione" label="Selecione" />];
@@ -1550,7 +1568,6 @@ const App = () => {
     return (
       <Tab.Navigator>
         <Tab.Screen name="Inicio" component={HomePage} />
-        <Tab.Screen name="Insert" component={InsertScreen} />
         <Tab.Screen name="Clientes">
           {(props) => (
             <Clients {...props} clients={clients} setClients={setClients} />

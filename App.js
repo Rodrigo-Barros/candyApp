@@ -708,16 +708,14 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
   }
 
   const newSell = async () => {
-    setOrderId(orderId + 1);
       if( toggleCheckBox ) {
 
       if (orderInfo.cliente.celular == null || orderInfo.cliente.celular == "") {
         return ToastAndroid.show("O cliente não tem um celular cadastrado.",ToastAndroid.LONG);
       }
       setSendReport(true);
-      console.warn(orderId);
       let reportText = "Detalhes do Pedido: ";
-      reportText += orderId + "\n";
+      reportText += (orderId == 0) ? "1 + \n" : orderId > 0 ?  orderId + "\n" : "excessão encontrada";
       orderItems.map(item=>{
         reportText+= item.quantidade + " " + item.nome + " " + formatToReal( item.preco ) + " " + formatToReal( item.subtotal ) + "\n";
       })

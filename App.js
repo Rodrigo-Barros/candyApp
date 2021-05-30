@@ -8,7 +8,9 @@ import {
   TextInput,
   ToastAndroid,
   StatusBar,
+  LogBox
 } from 'react-native';
+
 
 // Third Party Plugins
 import {Picker} from '@react-native-picker/picker';
@@ -21,6 +23,8 @@ import SQLite from 'react-native-sqlite-storage';
 import RadioForm from 'react-native-simple-radio-button';
 import CheckBox from '@react-native-community/checkbox';
 import { WebView } from 'react-native-webview';
+
+LogBox.ignoreAllLogs();
 
 const Products = (props) => {
   const styles = {
@@ -840,7 +844,8 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
             setProductAmountValue(value);
             let amount = value;
             let product = orderInfo.produto;
-            orderInfo.produto.quantidade = amount;
+            if ( orderInfo.hasOwnProperty('produto') ){
+              orderInfo.produto.quantidade = amount;
             if (amount > product.estoque) {
               console.log(
                 'você possui apenas ' +
@@ -856,6 +861,8 @@ const ProductSell = ({navigation, selectedProduct, setSelectedProduct, orderItem
               setDisableAddButton(true);
             } else {
               setDisableAddButton(false);
+            }
+
             }
           }}>
           {productAmount}
